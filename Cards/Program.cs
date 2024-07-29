@@ -19,6 +19,7 @@ public class Program {
             Console.WriteLine("\n");
             CountDown();
             PromptAnyKey("play again?");
+            Deck.ResetDeck();   
             Console.Clear();
         }
     }
