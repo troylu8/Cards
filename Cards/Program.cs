@@ -28,20 +28,25 @@ public class Program {
 
         PromptAnyKey("the deck is deftly shuffled. begin?");
 
-        int[] sets = [4, 5, 6, 7, 8, 9, 12];
+        int[] sets = [4, 5, 6, 7, 8, 10, 12];
         int completed = 0;
         int round = 0;
         
         for (; round < sets.Length; round++) {
-            bool won = StartSet(sets[round], 1000 - round * 100);
+            SET_RESULT result = StartSet(sets[round], 1000 - round * 100);
             
-            if (!won) {
+            if (result != SET_RESULT.WON) {
                 string[] tips = [
                     "* hit a key as soon as the odd card appears!",
+
                     "* if a card has passed, you cannot select it",
+                    "* be decisive; trust your gut!"
                 ];
 
-                ColorPrinter.WriteLine(tips[random.Next(tips.Length)], ConsoleColor.Blue);
+                ColorPrinter.WriteLine(
+                    tips[result == SET_RESULT.CHOSE_NONE? 0 : random.Next(1, tips.Length)],
+                    ConsoleColor.Blue
+                );
                 break;
             } 
             
@@ -82,7 +87,7 @@ public class Program {
         Console.WriteLine();
     }
 
-    public static bool StartSet(int amt, int delay) {
+    public static SET_RESULT StartSet(int amt, int delay) {
         
         Console.WriteLine("pay attention!");
         CountDown();
@@ -106,36 +111,45 @@ public class Program {
         Card odd = Deck.GetRandomUndrawnCard();
         int oddIndex = random.Next(amt);
         
-        Card curr = (0 == oddIndex)? odd : drawn[0];
+        Card? curr = null;
 
         var cTokenSrc = new CancellationTokenSource();
         CancellationToken cToken = cTokenSrc.Token;
 
         Task printCards = Task.Run(() => {
-            curr.PrintLine();
-            Thread.Sleep(delay);
 
-            for (int i = 1; i < amt && !cToken.IsCancellationRequested; i++) {
+            for (int i = 0; i < amt && !cToken.IsCancellationRequested; i++) {
                 curr = (i == oddIndex)? odd : drawn[i];
                 curr.PrintLine();
 
                 Thread.Sleep(delay);
             }
+            if (cToken.IsCancellationRequested) return;
+
+            ColorPrinter.WriteLine("(end)", ConsoleColor.DarkGray);
+            curr = null;
         });
 
         WaitForInput();
         cTokenSrc.Cancel();
 
         Console.Write("\nselected: ");
-        curr.Print();
+        if (curr == null) Console.Write("(none)");
+        else curr.Print();
         Console.Write("\tanswer: ");
         odd.PrintLine();
 
-        bool won = odd.Equals(curr);
-        Console.WriteLine( won? "victory." : "a loss." );
+        SET_RESULT result;
+        if (curr == null) result = SET_RESULT.CHOSE_NONE;
+        else result = odd.Equals(curr)? SET_RESULT.WON : SET_RESULT.CHOSE_WRONG_CARD;
+        
+        Console.WriteLine( (result == SET_RESULT.WON)? "victory." : "a loss." );
 
-        return won;
+        return result;
     }
 
+    public enum SET_RESULT {
+        WON, CHOSE_WRONG_CARD, CHOSE_NONE
+    }
     
 }
